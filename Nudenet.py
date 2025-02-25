@@ -137,6 +137,7 @@ def nudenet_execute(
     blocks: float,
     overlay_image: torch.Tensor,
     overlay_strength: float,
+    alpha_mask: torch.Tensor,
 ):
     image = input_image.clone()
     if isinstance(image, torch.Tensor):
@@ -163,15 +164,18 @@ def nudenet_execute(
         elif censor_method == "gaussian_blur":
             image[y : y + h, x : x + w] = cv2.GaussianBlur(area, (h, h), 0)
         elif censor_method == "image":
-            if overlay_image is None:
-                raise Exception("Censor Method: image require overlay_image")
+            if overlay_image is None or alpha_mask is None:
+                raise Exception("Censor Method: image require both overlay_image and alpha_mask")
             if isinstance(overlay_image, torch.Tensor):
                 if overlay_image.dim() == 4:
                     overlay_image = overlay_image[0]
                 overlay_image = overlay_image.cpu().numpy()
-
+            if isinstance(alpha_mask, torch.Tensor):
+                alpha_mask = alpha_mask.reshape((alpha_mask.shape[-2], alpha_mask.shape[-1]))
+                alpha_mask = alpha_mask.cpu().numpy()
             pasty = cv2.resize(overlay_image, (w, h))
-            image = overlay(image, pasty, x, y, overlay_strength)
+            alpha_mask = cv2.resize(alpha_mask, (w, h))
+            image = overlay(image, pasty, alpha_mask, x, y, overlay_strength)
     return torch.from_numpy(image).unsqueeze(0)
 
 
@@ -196,6 +200,7 @@ class ApplyNudenet:
                     "FLOAT",
                     {"default": 1.0, "min": 0.0, "max": 10.0, "step": 0.1},
                 ),
+                "alpha_mask": ("MASK",),
             },
         }
 
@@ -213,6 +218,7 @@ class ApplyNudenet:
         blocks,
         overlay_image: torch.Tensor = None,
         overlay_strength: float = 1.0,
+        alpha_mask: torch.Tensor = None,
     ):
         output_image = nudenet_execute(
             nudenet_model=nudenet_model,
@@ -223,6 +229,7 @@ class ApplyNudenet:
             blocks=blocks,
             overlay_image=overlay_image,
             overlay_strength=overlay_strength,
+            alpha_mask=alpha_mask,
         )
         return (output_image,)
 

@@ -30,7 +30,7 @@ def pixelate(image: np.ndarray, blocks: int = 3) -> np.ndarray:
     return image
 
 
-def overlay(background, foreground, x_offset=None, y_offset=None, overlay_strength=3.0):
+def overlay(background, foreground, alpha_mask, x_offset=None, y_offset=None, overlay_strength=3.0):
     if background.dtype != np.float32:
         background = background.astype(np.float32)
     if foreground.dtype != np.float32:
@@ -44,7 +44,6 @@ def overlay(background, foreground, x_offset=None, y_offset=None, overlay_streng
 
     if fg_channels < 4:
         foreground = cv2.cvtColor(foreground, cv2.COLOR_RGB2RGBA)
-        foreground[:, :, 3] = cv2.cvtColor(foreground, cv2.COLOR_BGR2GRAY)
 
     fg_h, fg_w, fg_channels = foreground.shape
 
@@ -68,12 +67,11 @@ def overlay(background, foreground, x_offset=None, y_offset=None, overlay_streng
     background_subsection = background[bg_y : bg_y + h, bg_x : bg_x + w]
 
     foreground_colors = foreground[:, :, :3]
-    alpha_channel = foreground[:, :, 3]
-    alpha_mask = alpha_channel[:, :, np.newaxis]
+    alpha_mask = alpha_mask[:, :, np.newaxis]
 
     composite = background_subsection * (
-        1 - alpha_mask * overlay_strength
-    ) + foreground_colors * (alpha_mask * overlay_strength)
+        alpha_mask * overlay_strength
+    ) + foreground_colors * ((1 - alpha_mask) * overlay_strength)
 
     background[bg_y : bg_y + h, bg_x : bg_x + w] = composite
 
