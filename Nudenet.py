@@ -49,6 +49,12 @@ LABELS_CLASSIDS_MAPPING = labels_classids_mapping = {
     label: class_id for class_id, label in CLASSIDS_LABELS_MAPPING.items()
 }
 
+BLOCK_COUNT_BEHAVIOURS = [
+    "fixed",
+    "fewer_when_small",
+    "fewer_when_large"
+]
+
 
 def read_image(img, target_size=320):
     assert isinstance(img, np.ndarray)
@@ -135,6 +141,7 @@ def nudenet_execute(
     filtered_labels: list,
     min_score: float,
     blocks: float,
+    block_count_scaling: str,
     overlay_image: torch.Tensor,
     overlay_strength: float,
     alpha_mask: torch.Tensor,
@@ -153,14 +160,26 @@ def nudenet_execute(
     )
     detections = postprocess(outputs, resize_factor, pad_left, pad_top, min_score)
     censored = [d for d in detections if d.get("id") not in filtered_labels]
-    for d in censored:
+    
+    if block_count_scaling == "fixed":
+        scaled_blocks = blocks
+    
+    for d in censored:        
         box = d["box"]
         x, y, w, h = box[0], box[1], box[2], box[3]
         area = image[y : y + h, x : x + w]
+        
+        if block_count_scaling != "fixed":
+            d_pct = max(h / image.shape[:2][0], w / image.shape[:2][1])
+            if block_count_scaling == "fewer_when_large":
+                scaled_blocks = int(blocks + d_pct * (1 - blocks)) 
+            else: # elif block_count_scaling == "fewer_when_small"
+                scaled_blocks = int(1 + d_pct * (blocks - 1)) 
+        
         if censor_method == "pixelate":
-            image[y : y + h, x : x + w] = pixelate(area, blocks=blocks)
+            image[y : y + h, x : x + w] = pixelate(area, blocks=scaled_blocks)
         elif censor_method == "blur":
-            image[y : y + h, x : x + w] = cv2.blur(area, (blocks, blocks))
+            image[y : y + h, x : x + w] = cv2.blur(area, (scaled_blocks, scaled_blocks))
         elif censor_method == "gaussian_blur":
             image[y : y + h, x : x + w] = cv2.GaussianBlur(area, (h, h), 0)
         elif censor_method == "image":
@@ -193,6 +212,7 @@ class ApplyNudenet:
                     {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.01},
                 ),
                 "blocks": ("INT", {"default": 3, "min": 1, "max": 100, "step": 1}),
+                "block_count_scaling": (BLOCK_COUNT_BEHAVIOURS, {"tooltip": "Scale block count by censor area. Only affects pixelate censor."}),
             },
             "optional": {
                 "overlay_image": ("IMAGE",),
@@ -216,10 +236,11 @@ class ApplyNudenet:
         censor_method,
         min_score,
         blocks,
+        block_count_scaling,
         overlay_image: torch.Tensor = None,
         overlay_strength: float = 1.0,
         alpha_mask: torch.Tensor = None,
-    ):
+    ):  
         output_image = nudenet_execute(
             nudenet_model=nudenet_model,
             input_image=image,
@@ -227,6 +248,7 @@ class ApplyNudenet:
             filtered_labels=filtered_labels,
             min_score=min_score,
             blocks=blocks,
+            block_count_scaling=block_count_scaling,
             overlay_image=overlay_image,
             overlay_strength=overlay_strength,
             alpha_mask=alpha_mask,
