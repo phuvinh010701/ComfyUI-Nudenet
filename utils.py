@@ -13,8 +13,16 @@ class ModelLoader(TypedDict):
 
 def pixelate(image: np.ndarray, blocks: int = 3) -> np.ndarray:
     (h, w) = image.shape[:2]
-    x_steps = np.linspace(0, w, blocks + 1, dtype="int")
-    y_steps = np.linspace(0, h, blocks + 1, dtype="int")
+    
+    if h > w:
+        blocks_h = blocks
+        blocks_w = int(blocks * (w/h))
+    else:
+        blocks_h = int(blocks * (h/w))
+        blocks_w = blocks
+    
+    x_steps = np.linspace(0, w, blocks_w + 1, dtype="int")
+    y_steps = np.linspace(0, h, blocks_h + 1, dtype="int")
 
     for i in range(1, len(y_steps)):
         for j in range(1, len(x_steps)):
