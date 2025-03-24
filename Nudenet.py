@@ -49,6 +49,12 @@ LABELS_CLASSIDS_MAPPING = labels_classids_mapping = {
     label: class_id for class_id, label in CLASSIDS_LABELS_MAPPING.items()
 }
 
+BLOCK_COUNT_BEHAVIOURS = [
+    "fixed",
+    "fewer_when_small",
+    "fewer_when_large"
+]
+
 
 def read_image(img, target_size=320):
     assert isinstance(img, np.ndarray)
@@ -113,70 +119,87 @@ def postprocess(output, resize_factor, pad_left, pad_top, min_score):
             scores.append(max_score)
             boxes.append([left, top, width, height])
     indices = cv2.dnn.NMSBoxes(boxes, scores, 0.25, 0.45)
-    res = []
-    for i in indices:
-        box = boxes[i]
-        score = scores[i]
-        class_id = class_ids[i]
-        res.append(
-            {
-                "id": class_id,
-                "score": round(float(score), 2),
-                "box": box,
-            }
-        )
-    return res
+    return [
+        {
+            "id": class_ids[i],
+            "score": round(float(scores[i]), 2),
+            "box": boxes[i],
+        }
+        for i in indices
+    ]
 
 
 def nudenet_execute(
     nudenet_model: ModelLoader,
-    input_image: torch.Tensor,
+    input_images: torch.Tensor,
     censor_method: str,
     filtered_labels: list,
     min_score: float,
     blocks: float,
+    block_count_scaling: str,
     overlay_image: torch.Tensor,
     overlay_strength: float,
     alpha_mask: torch.Tensor,
 ):
-    image = input_image.clone()
-    if isinstance(image, torch.Tensor):
-        if image.dim() == 4:
-            image = image[0]
-        image = image.cpu().numpy()
+    input_images = input_images.clone()
 
-    preprocessed_image, resize_factor, pad_left, pad_top = read_image(
-        image, nudenet_model["input_width"]
-    )
-    outputs = nudenet_model["session"].run(
-        None, {nudenet_model["input_name"]: preprocessed_image}
-    )
-    detections = postprocess(outputs, resize_factor, pad_left, pad_top, min_score)
-    censored = [d for d in detections if d.get("id") not in filtered_labels]
-    for d in censored:
-        box = d["box"]
-        x, y, w, h = box[0], box[1], box[2], box[3]
-        area = image[y : y + h, x : x + w]
-        if censor_method == "pixelate":
-            image[y : y + h, x : x + w] = pixelate(area, blocks=blocks)
-        elif censor_method == "blur":
-            image[y : y + h, x : x + w] = cv2.blur(area, (blocks, blocks))
-        elif censor_method == "gaussian_blur":
-            image[y : y + h, x : x + w] = cv2.GaussianBlur(area, (h, h), 0)
-        elif censor_method == "image":
-            if overlay_image is None or alpha_mask is None:
-                raise Exception("Censor Method: image require both overlay_image and alpha_mask")
-            if isinstance(overlay_image, torch.Tensor):
-                if overlay_image.dim() == 4:
-                    overlay_image = overlay_image[0]
-                overlay_image = overlay_image.cpu().numpy()
-            if isinstance(alpha_mask, torch.Tensor):
-                alpha_mask = alpha_mask.reshape((alpha_mask.shape[-2], alpha_mask.shape[-1]))
-                alpha_mask = alpha_mask.cpu().numpy()
-            pasty = cv2.resize(overlay_image, (w, h))
-            alpha_mask = cv2.resize(alpha_mask, (w, h))
-            image = overlay(image, pasty, alpha_mask, x, y, overlay_strength)
-    return torch.from_numpy(image).unsqueeze(0)
+    assert isinstance(input_images, torch.Tensor), "input_images must be a torch.Tensor but got %s" % type(input_images)
+    assert input_images.dim() == 4, "input_images must be a 4D tensor but got %s" % input_images.dim()
+
+    batch_size = input_images.shape[0]
+    output_images = []
+
+    if censor_method == "image":
+        assert overlay_image is not None, "overlay_image must be provided"
+        assert alpha_mask is not None, "alpha_mask must be provided"
+        assert isinstance(overlay_image, torch.Tensor), "overlay_image must be a torch.Tensor"
+        assert isinstance(alpha_mask, torch.Tensor), "alpha_mask must be a torch.Tensor"
+        assert overlay_image.dim() == 4, "overlay_image must be a 4D tensor"
+
+        overlay_image = overlay_image[0].cpu().numpy()
+        alpha_mask = alpha_mask.reshape((alpha_mask.shape[-2], alpha_mask.shape[-1])).cpu().numpy()
+
+    
+    for i in range(batch_size):
+        image = input_images[i].cpu().numpy()
+        preprocessed_image, resize_factor, pad_left, pad_top = read_image(
+            image, nudenet_model["input_width"]
+        )
+        outputs = nudenet_model["session"].run(
+            None, {nudenet_model["input_name"]: preprocessed_image}
+        )
+        detections = postprocess(outputs, resize_factor, pad_left, pad_top, min_score)
+        censored = [d for d in detections if d.get("id") not in filtered_labels]
+    
+        if block_count_scaling == "fixed":
+            scaled_blocks = blocks
+        
+        for d in censored:        
+            box = d["box"]
+            x, y, w, h = box[0], box[1], box[2], box[3]
+            area = image[y : y + h, x : x + w]
+            
+            if block_count_scaling != "fixed":
+                d_pct = max(h / image.shape[:2][0], w / image.shape[:2][1])
+                if block_count_scaling == "fewer_when_large":
+                    scaled_blocks = int(blocks + d_pct * (1 - blocks)) 
+                else: # elif block_count_scaling == "fewer_when_small"
+                    scaled_blocks = int(1 + d_pct * (blocks - 1)) 
+            
+            if censor_method == "pixelate":
+                image[y : y + h, x : x + w] = pixelate(area, blocks=scaled_blocks)
+            elif censor_method == "blur":
+                image[y : y + h, x : x + w] = cv2.blur(area, (scaled_blocks, scaled_blocks))
+            elif censor_method == "gaussian_blur":
+                image[y : y + h, x : x + w] = cv2.GaussianBlur(area, (h, h), 0)
+            elif censor_method == "image":
+                pasty = cv2.resize(overlay_image, (w, h))
+                alpha_mask = cv2.resize(alpha_mask, (w, h))
+                image = overlay(image, pasty, alpha_mask, x, y, overlay_strength)
+            
+        output_images.append(torch.from_numpy(image).unsqueeze(0))
+
+    return torch.cat(output_images, dim=0)
 
 
 class ApplyNudenet:
@@ -193,6 +216,7 @@ class ApplyNudenet:
                     {"default": 0.2, "min": 0.0, "max": 1.0, "step": 0.01},
                 ),
                 "blocks": ("INT", {"default": 3, "min": 1, "max": 100, "step": 1}),
+                "block_count_scaling": (BLOCK_COUNT_BEHAVIOURS, {"tooltip": "Scale block count by censor area. Only affects pixelate censor."}),
             },
             "optional": {
                 "overlay_image": ("IMAGE",),
@@ -216,17 +240,19 @@ class ApplyNudenet:
         censor_method,
         min_score,
         blocks,
+        block_count_scaling,
         overlay_image: torch.Tensor = None,
         overlay_strength: float = 1.0,
         alpha_mask: torch.Tensor = None,
-    ):
+    ):  
         output_image = nudenet_execute(
             nudenet_model=nudenet_model,
-            input_image=image,
+            input_images=image,
             censor_method=censor_method,
             filtered_labels=filtered_labels,
             min_score=min_score,
             blocks=blocks,
+            block_count_scaling=block_count_scaling,
             overlay_image=overlay_image,
             overlay_strength=overlay_strength,
             alpha_mask=alpha_mask,
