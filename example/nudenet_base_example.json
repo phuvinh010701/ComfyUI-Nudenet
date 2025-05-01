@@ -1,98 +1,320 @@
 {
-  "25": {
-    "inputs": {
-      "model": "nudenet.onnx"
-    },
-    "class_type": "NudenetModelLoader",
-    "_meta": {
-      "title": "Nudenet Model Loader"
-    }
-  },
-  "26": {
-    "inputs": {
-      "censor_method": "image",
-      "min_score": 0.2,
-      "blocks": 10,
-      "overlay_strength": 5,
-      "nudenet_model": [
-        "25",
-        0
+  "id": "3a1acd6d-2c96-4dcc-ad93-44b394bfe754",
+  "revision": 0,
+  "last_node_id": 35,
+  "last_link_id": 39,
+  "nodes": [
+    {
+      "id": 25,
+      "type": "NudenetModelLoader",
+      "pos": [
+        -454.9095764160156,
+        1218.701171875
       ],
-      "image": [
-        "27",
-        0
+      "size": [
+        315,
+        58
       ],
-      "filtered_labels": [
-        "34",
-        0
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "NUDENET_MODEL",
+          "type": "NUDENET_MODEL",
+          "slot_index": 0,
+          "links": [
+            35
+          ]
+        }
       ],
-      "overlay_image": [
-        "32",
-        0
+      "properties": {
+        "Node name for S&R": "NudenetModelLoader"
+      },
+      "widgets_values": [
+        "nudenet.onnx"
       ]
     },
-    "class_type": "ApplyNudenet",
-    "_meta": {
-      "title": "Apply Nudenet"
-    }
-  },
-  "27": {
-    "inputs": {
-      "image": "test1.jpg",
-      "upload": "image"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
-    }
-  },
-  "29": {
-    "inputs": {
-      "filename_prefix": "ComfyUI",
-      "images": [
-        "26",
-        0
+    {
+      "id": 34,
+      "type": "FilterdLabel",
+      "pos": [
+        -26.319978713989258,
+        700.11962890625
+      ],
+      "size": [
+        315,
+        466
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "FILTERED_LABELS",
+          "type": "FILTERED_LABELS",
+          "slot_index": 0,
+          "links": [
+            37
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FilterdLabel"
+      },
+      "widgets_values": [
+        true,
+        false,
+        false,
+        true,
+        true,
+        false,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        false
       ]
     },
-    "class_type": "SaveImage",
-    "_meta": {
-      "title": "Save Image"
+    {
+      "id": 32,
+      "type": "LoadImage",
+      "pos": [
+        -454.8792419433594,
+        818.090576171875
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            34
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "example.jpg",
+        "image",
+        ""
+      ]
+    },
+    {
+      "id": 29,
+      "type": "SaveImage",
+      "pos": [
+        309.5509338378906,
+        1163.157958984375
+      ],
+      "size": [
+        315,
+        270
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 38
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "ComfyUI",
+        ""
+      ]
+    },
+    {
+      "id": 35,
+      "type": "ApplyNudenet",
+      "pos": [
+        -41.436920166015625,
+        1292.09228515625
+      ],
+      "size": [
+        315,
+        234
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "nudenet_model",
+          "type": "NUDENET_MODEL",
+          "link": 35
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 34
+        },
+        {
+          "name": "filtered_labels",
+          "type": "FILTERED_LABELS",
+          "link": 37
+        },
+        {
+          "name": "overlay_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 39
+        },
+        {
+          "name": "alpha_mask",
+          "shape": 7,
+          "type": "MASK",
+          "link": 36
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            38
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ApplyNudenet"
+      },
+      "widgets_values": [
+        "image",
+        0.2,
+        3,
+        "fixed",
+        1
+      ]
+    },
+    {
+      "id": 27,
+      "type": "LoadImage",
+      "pos": [
+        -490.3266906738281,
+        1382.7235107421875
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            39
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            36
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "overlay_image.png",
+        "image",
+        ""
+      ]
+    }
+  ],
+  "links": [
+    [
+      34,
+      32,
+      0,
+      35,
+      1,
+      "IMAGE"
+    ],
+    [
+      35,
+      25,
+      0,
+      35,
+      0,
+      "NUDENET_MODEL"
+    ],
+    [
+      36,
+      27,
+      1,
+      35,
+      4,
+      "MASK"
+    ],
+    [
+      37,
+      34,
+      0,
+      35,
+      2,
+      "FILTERED_LABELS"
+    ],
+    [
+      38,
+      35,
+      0,
+      29,
+      0,
+      "IMAGE"
+    ],
+    [
+      39,
+      27,
+      0,
+      35,
+      3,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.8264462809917354,
+      "offset": [
+        599.9320167785156,
+        -823.9189527187499
+      ]
     }
   },
-  "32": {
-    "inputs": {
-      "image": "censored.png",
-      "upload": "image"
-    },
-    "class_type": "LoadImage",
-    "_meta": {
-      "title": "Load Image"
-    }
-  },
-  "34": {
-    "inputs": {
-      "FEMALE_GENITALIA_COVERED": false,
-      "FACE_FEMALE": false,
-      "BUTTOCKS_EXPOSED": false,
-      "FEMALE_BREAST_EXPOSED": false,
-      "FEMALE_GENITALIA_EXPOSED": true,
-      "MALE_BREAST_EXPOSED": false,
-      "ANUS_EXPOSED": true,
-      "FEET_EXPOSED": false,
-      "BELLY_COVERED": false,
-      "FEET_COVERED": false,
-      "ARMPITS_COVERED": false,
-      "ARMPITS_EXPOSED": false,
-      "FACE_MALE": false,
-      "BELLY_EXPOSED": false,
-      "MALE_GENITALIA_EXPOSED": true,
-      "ANUS_COVERED": false,
-      "FEMALE_BREAST_COVERED": false,
-      "BUTTOCKS_COVERED": false
-    },
-    "class_type": "FilterdLabel",
-    "_meta": {
-      "title": "Filtered Labels"
-    }
-  }
+  "version": 0.4
 }

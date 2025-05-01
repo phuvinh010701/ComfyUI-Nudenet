@@ -1,7 +1,7 @@
 [project]
 name = "ComfyUI-Nudenet"
 description = "Nodes for NSFW content filtering"
-version = "0.0.1"
+version = "1.0.1"
 license = { file = "LICENSE" }
 dependencies = []
 
