@@ -28,7 +28,7 @@ pip install -r requirements.txt
 ```
 
 3. Create folder, download models
-Download model from [here](https://d2xl8ijk56kv4u.cloudfront.net/models/nudenet.onnx)
+Download model from [here](https://d2xl8ijk56kv4u.cloudfront.net/models/nudenet.onnx) or [here](https://huggingface.co/Perfectfox256/hotscreen-detection-models/tree/main/yolo-07-2025?not-for-all-audiences=true)
  and put into models/Nudenet/
 
 # Available Nodes
